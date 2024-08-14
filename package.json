@@ -29,6 +29,8 @@
   "dependencies": {
     "@babel/preset-typescript": "^7.24.7",
     "@rollup/plugin-typescript": "^11.1.6",
+    "@types/lodash": "^4.17.7",
+    "lodash": "^4.17.21",
     "tslib": "^2.6.3",
     "webextension-polyfill-ts": "^0.26.0"
   },

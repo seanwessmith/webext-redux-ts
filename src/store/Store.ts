@@ -5,6 +5,7 @@ import {
   PATCH_STATE_TYPE,
   DEFAULT_CHANNEL_NAME,
 } from "../constants/index";
+import { assignIn } from "lodash";
 import { Transformer } from "../types";
 import { withSerializer, withDeserializer, noop } from "../serialization";
 import shallowDiff, { DiffItem } from "../strategies/shallowDiff/patch";
@@ -238,6 +239,7 @@ class Store {
             const error = this.browserAPI.runtime.lastError;
             const bgErr = new Error(`${backgroundErrPrefix}${error}`);
 
+            reject(assignIn(bgErr, error));
             reject(Object.assign({}, bgErr, error));
             return;
           }
@@ -247,7 +249,8 @@ class Store {
           if (error) {
             const bgErr = new Error(`${backgroundErrPrefix}${error}`);
 
-            reject(Object.assign({}, bgErr, error));
+            reject(assignIn(bgErr, error));
+            // reject(Object.assign({}, bgErr, error));
           } else {
             resolve(value && value.payload);
           }

@@ -186,16 +186,16 @@ describe("wrapStore", () => {
     // Simulate a state update by calling subscribers
     subscribers.forEach((subscriber) => subscriber());
 
-    const expectedSetupMessage = {
+    const expectedSetupMessage = [{
       type: STATE_TYPE,
       channelName,
       payload: serializer(firstState),
-    };
-    const expectedPatchMessage = {
+    }];
+    const expectedPatchMessage = [{
       type: PATCH_STATE_TYPE,
       channelName,
       payload: serializer(shallowDiff(firstState, secondState)),
-    };
+    }];
 
     expect(spy.mock.calls.length).toBe(2);
     expect(spy.mock.calls[0][1]).toEqual(expectedSetupMessage);
@@ -240,11 +240,11 @@ describe("wrapStore", () => {
     // Simulate a state update by calling subscribers
     subscribers.forEach((subscriber) => subscriber());
 
-    const expectedPatchMessage = {
+    const expectedPatchMessage = [{
       type: PATCH_STATE_TYPE,
       channelName,
       payload: diffStrategy(firstState, secondState),
-    };
+    }];
 
     expect(spy.mock.calls.length).toBe(2);
     expect(spy.mock.calls[1][1]).toEqual(expectedPatchMessage);
