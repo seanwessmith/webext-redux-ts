@@ -4,15 +4,16 @@
   "description": "A set of utilities for building Redux applications in Web Extensions.",
   "main": "lib/index.js",
   "typings": "./index.d.ts",
+  "type": "module",
   "scripts": {
     "umd-build": "rollup -c",
     "build": "babel src --out-dir lib && npm run umd-build",
-    "lint-src": "eslint src/{**/,}*.js",
-    "lint-test": "eslint test/{**/,}*.js",
+    "lint-src": "eslint src/{**/,}*.ts",
+    "lint-test": "eslint test/{**/,}*.ts",
     "lint": "npm run lint-src && npm run lint-test",
     "prepublishOnly": "npm run build",
     "pretest": "babel src --out-dir lib",
-    "test-run": "mocha --require @babel/register --recursive",
+    "test-run": "bun test test/{**/,}*.ts",
     "test": "npm run lint && npm run test-run"
   },
   "repository": {
@@ -26,29 +27,34 @@
   },
   "homepage": "https://github.com/tshaddix/webext-redux#readme",
   "dependencies": {
-    "lodash.assignin": "^4.2.0",
-    "lodash.clonedeep": "^4.5.0"
+    "@babel/preset-typescript": "^7.24.7",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "tslib": "^2.6.3",
+    "webextension-polyfill-ts": "^0.26.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.2.3",
-    "@babel/core": "^7.3.3",
-    "@babel/plugin-transform-async-to-generator": "^7.2.0",
-    "@babel/polyfill": "^7.2.5",
-    "@babel/preset-env": "^7.3.1",
-    "@babel/register": "^7.0.0",
-    "babel-eslint": "^7.2.0",
-    "eslint": "^4.18.2",
-    "mocha": "^5.2.0",
+    "@babel/cli": "^7.24.8",
+    "@babel/core": "^7.25.2",
+    "@babel/eslint-parser": "^7.25.1",
+    "@babel/plugin-transform-async-to-generator": "^7.24.7",
+    "@babel/polyfill": "^7.12.1",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/register": "^7.24.6",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@types/bun": "^1.1.6",
+    "@types/chrome": "^0.0.270",
+    "@types/firefox-webext-browser": "^120.0.4",
+    "@types/node": "^22.2.0",
+    "@types/webextension-polyfill": "^0.12.0",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^9.9.0",
     "redux": "5.0.1",
-    "rollup": "^1.22.0",
-    "rollup-plugin-babel": "^4.3.3",
-    "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-terser": "^5.1.2",
-    "should": "^13.2.1",
-    "sinon": "^6.0.0"
+    "rollup": "^4.20.0"
   },
   "peerDependencies": {
-    "redux": ">= 3 <= 5"
+    "redux": "5.0.1"
   }
 }
