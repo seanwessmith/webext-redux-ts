@@ -1,10 +1,10 @@
-import * as redux from "redux";
+import redux from "redux";
 
 export type DiffStrategy = (oldObj: any, newObj: any) => any;
 export type PatchStrategy = (oldObj: any, patch: any) => any;
 
-export class Store<S = any, A extends redux.Action = redux.AnyAction> {
-    /**
+export class Store<S = any, A extends redux.Action = redux.Action> {
+  /**
    * Creates a new Proxy store
    * @param  {object} options
    * @param {string} options.channelName The name of the channel for this store.
@@ -89,7 +89,7 @@ export class Store<S = any, A extends redux.Action = redux.AnyAction> {
   [Symbol.observable](): Observable<S>;
 }
 
-type WrapStore<S, A extends redux.Action = redux.AnyAction> = (
+type WrapStore<S, A extends redux.Action = redux.Action> = (
   store: redux.Store<S, A>,
   configuration?: {
     channelName?: string;
@@ -105,7 +105,7 @@ type WrapStore<S, A extends redux.Action = redux.AnyAction> = (
 
 export function createWrapStore<
   S,
-  A extends redux.Action = redux.AnyAction
+  A extends redux.Action = redux.Action
 >(): WrapStore<S, A>;
 
 export function alias(aliases: {

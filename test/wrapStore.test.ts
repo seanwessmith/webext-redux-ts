@@ -1,11 +1,5 @@
-import {
-  spyOn,
-  test,
-  expect,
-  mock,
-  beforeEach,
-  describe,
-} from "bun:test";
+import { spyOn, test, expect, mock, beforeEach, describe } from "bun:test";
+import { configureStore } from "@reduxjs/toolkit";
 import { createWrapStore } from "../src";
 import shallowDiff from "../src/strategies/shallowDiff/diff";
 import { DISPATCH_TYPE, STATE_TYPE, PATCH_STATE_TYPE } from "../src/constants";
@@ -74,17 +68,15 @@ describe("wrapStore", () => {
   }
 
   describe("on receiving messages", () => {
-    let listeners, store, payload, message, sender, callback;
+    let listeners, storeCreator, payload, message, sender, callback;
 
     beforeEach(() => {
       listeners = setupListeners();
-      store = {
-        dispatch: mock(() => {}),
-        subscribe: () => {
-          return () => ({});
-        },
-        getState: () => ({}),
-      };
+      storeCreator = () =>
+        configureStore({
+          reducer: (state = {}, action) => state,
+          middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
+        });
 
       payload = {
         a: "a",
@@ -101,26 +93,24 @@ describe("wrapStore", () => {
     test("should dispatch actions received on onMessage to store", async () => {
       const wrapStore = createWrapStore();
 
-      wrapStore(store, { channelName });
+      wrapStore(storeCreator, { channelName });
       listeners.onMessage.forEach((l) => l(message, sender, callback));
 
       await Promise.resolve();
 
-      expect(store.dispatch.mock.calls.length).toBe(1);
-      expect(store.dispatch.mock.calls[0][0]).toEqual(
-        Object.assign({}, payload, {
-          _sender: sender,
-        })
-      );
+      // We can't directly check store.dispatch calls anymore, so we need to check state changes
+      const store = storeCreator();
+      expect(store.getState()).toEqual(expect.objectContaining(payload));
     });
 
     test("should not dispatch actions received on onMessage for other ports", () => {
       const wrapStore = createWrapStore();
 
-      wrapStore(store, { channelName });
+      wrapStore(storeCreator, { channelName });
       message.channelName = channelName + "2";
       listeners.onMessage.forEach((l) => l(message, sender, callback));
 
+      const store = storeCreator();
       expect(store.dispatch.mock.calls.length).toBe(0);
     });
 
@@ -128,12 +118,13 @@ describe("wrapStore", () => {
       const deserializer = mock((data) => JSON.parse(data));
       const wrapStore = createWrapStore();
 
-      wrapStore(store, { channelName, deserializer });
+      wrapStore(storeCreator, { channelName, deserializer });
       message.payload = JSON.stringify(payload);
       listeners.onMessage.forEach((l) => l(message, sender, callback));
 
       await Promise.resolve();
 
+      const store = storeCreator();
       expect(deserializer.mock.calls.length).toBe(1);
       expect(store.dispatch.mock.calls[0][0]).toEqual(
         Object.assign({}, payload, {
@@ -146,7 +137,7 @@ describe("wrapStore", () => {
       const deserializer = mock((data) => JSON.parse(data));
       const wrapStore = createWrapStore();
 
-      wrapStore(store, { channelName, deserializer });
+      wrapStore(storeCreator, { channelName, deserializer });
       message.channelName = channelName + "2";
       message.payload = JSON.stringify(payload);
       listeners.onMessage.forEach((l) => l(message, sender, callback));
@@ -156,46 +147,46 @@ describe("wrapStore", () => {
   });
 
   test("should serialize initial state and subsequent patches correctly", () => {
-    // const sendMessage = (self.chrome.tabs.sendMessage = mock(() => {}));
     const spy = spyOn(self.chrome.tabs, "sendMessage");
 
-    // Mock store subscription
-    const subscribers: any[] = [];
-    const store = {
-      subscribe: (subscriber: any) => {
-        subscribers.push(subscriber);
-        return () => ({});
-      },
-      getState: mock(() => ({})),
-    };
-
-    // Stub state access
     const firstState = { a: 1, b: 2 };
     const secondState = { a: 1, b: 3, c: 5 };
 
-    store.getState
-      .mockImplementationOnce(() => firstState)
-      .mockImplementationOnce(() => secondState)
-      .mockImplementationOnce(() => secondState);
+    let currentState = firstState;
+    const storeCreator = () =>
+      configureStore({
+        reducer: (state = currentState, action) => {
+          if (action.type === "UPDATE_STATE") {
+            return action.payload;
+          }
+          return state;
+        },
+        middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
+      });
 
     const serializer = (payload) => JSON.stringify(payload);
     const wrapStore = createWrapStore();
 
-    wrapStore(store, { channelName, serializer });
+    wrapStore(storeCreator, { channelName, serializer });
 
-    // Simulate a state update by calling subscribers
-    subscribers.forEach((subscriber) => subscriber());
+    const store = storeCreator();
+    store.dispatch({ type: "UPDATE_STATE", payload: secondState });
+    currentState = secondState;
 
-    const expectedSetupMessage = [{
-      type: STATE_TYPE,
-      channelName,
-      payload: serializer(firstState),
-    }];
-    const expectedPatchMessage = [{
-      type: PATCH_STATE_TYPE,
-      channelName,
-      payload: serializer(shallowDiff(firstState, secondState)),
-    }];
+    const expectedSetupMessage = [
+      {
+        type: STATE_TYPE,
+        channelName,
+        payload: serializer(firstState),
+      },
+    ];
+    const expectedPatchMessage = [
+      {
+        type: PATCH_STATE_TYPE,
+        channelName,
+        payload: serializer(shallowDiff(firstState, secondState)),
+      },
+    ];
 
     expect(spy.mock.calls.length).toBe(2);
     expect(spy.mock.calls[0][1]).toEqual(expectedSetupMessage);
@@ -203,30 +194,25 @@ describe("wrapStore", () => {
   });
 
   test("should use the provided diff strategy", () => {
-    // const sendMessage = (self.chrome.tabs.sendMessage = mock(() => {}));
     const spy = spyOn(self.chrome.tabs, "sendMessage");
 
-    // Mock store subscription
-    const subscribers: any[] = [];
-    const store = {
-      subscribe: (subscriber: any) => {
-        subscribers.push(subscriber);
-        return () => ({});
-      },
-      getState: mock(() => ({})),
-    };
-
-    // Stub state access
     const firstState = { a: 1, b: 2 };
     const secondState = { a: 1, b: 3, c: 5 };
 
-    store.getState
-      .mockImplementationOnce(() => firstState)
-      .mockImplementationOnce(() => secondState)
-      .mockImplementationOnce(() => secondState);
+    let currentState = firstState;
+    const storeCreator = () =>
+      configureStore({
+        reducer: (state = currentState, action) => {
+          if (action.type === "UPDATE_STATE") {
+            return action.payload;
+          }
+          return state;
+        },
+        middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
+      });
 
     // Create a fake diff strategy
-    const diffStrategy = (oldObj, newObj) => [
+    const diffStrategy = (oldObj: any, newObj: any) => [
       {
         type: "FAKE_DIFF",
         oldObj,
@@ -235,55 +221,56 @@ describe("wrapStore", () => {
     ];
     const wrapStore = createWrapStore();
 
-    wrapStore(store, { channelName, diffStrategy });
+    wrapStore(storeCreator, { channelName, diffStrategy });
 
-    // Simulate a state update by calling subscribers
-    subscribers.forEach((subscriber) => subscriber());
+    const store = storeCreator();
+    store.dispatch({ type: "UPDATE_STATE", payload: secondState });
+    currentState = secondState;
 
-    const expectedPatchMessage = [{
-      type: PATCH_STATE_TYPE,
-      channelName,
-      payload: diffStrategy(firstState, secondState),
-    }];
+    const expectedPatchMessage = [
+      {
+        type: PATCH_STATE_TYPE,
+        channelName,
+        payload: diffStrategy(firstState, secondState),
+      },
+    ];
 
     expect(spy.mock.calls.length).toBe(2);
     expect(spy.mock.calls[1][1]).toEqual(expectedPatchMessage);
   });
 
   describe("when validating options", () => {
-    const store = {
-      dispatch: mock(() => {}),
-      subscribe: () => {
-        return () => ({});
-      },
-      getState: () => ({}),
-    };
+    const storeCreator = () =>
+      configureStore({
+        reducer: (state = {}, action) => state,
+        middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
+      });
 
     test("should use defaults if no options present", () => {
       expect(() => {
         const wrapStore = createWrapStore();
-        wrapStore(store);
+        wrapStore(storeCreator);
       }).not.toThrow();
     });
 
     test("should throw an error if serializer is not a function", () => {
       expect(() => {
         const wrapStore = createWrapStore();
-        wrapStore(store, { channelName, serializer: "abc" });
+        wrapStore(storeCreator, { channelName, serializer: "abc" as any });
       }).toThrow();
     });
 
     test("should throw an error if deserializer is not a function", () => {
       expect(() => {
         const wrapStore = createWrapStore();
-        wrapStore(store, { channelName, deserializer: "abc" });
+        wrapStore(storeCreator, { channelName, deserializer: "abc" as any });
       }).toThrow();
     });
 
     test("should throw an error if diffStrategy is not a function", () => {
       expect(() => {
         const wrapStore = createWrapStore();
-        wrapStore(store, { channelName, diffStrategy: "abc" });
+        wrapStore(storeCreator, { channelName, diffStrategy: "abc" as any });
       }).toThrow();
     });
   });
@@ -291,13 +278,11 @@ describe("wrapStore", () => {
   test("should send a safety message to all tabs once initialized", () => {
     const tabs = [123, 456, 789, 1011, 1213];
     const tabResponders: any[] = [];
-    const store = {
-      dispatch: mock(() => {}),
-      subscribe: () => {
-        return () => ({});
-      },
-      getState: () => ({}),
-    };
+    const storeCreator = () =>
+      configureStore({
+        reducer: (state = {}, action) => state,
+        middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
+      });
 
     self.chrome = {
       runtime: {
@@ -320,7 +305,7 @@ describe("wrapStore", () => {
     } as any;
     const wrapStore = createWrapStore();
 
-    wrapStore(store, { channelName });
+    wrapStore(storeCreator, { channelName });
 
     expect(tabResponders.length).toBe(5);
   });

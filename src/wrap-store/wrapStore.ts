@@ -6,6 +6,7 @@ import {
   PATCH_STATE_TYPE,
   DEFAULT_CHANNEL_NAME,
 } from "../constants/index";
+import { configureStore } from "@reduxjs/toolkit";
 import { withSerializer, withDeserializer, noop } from "../serialization";
 import { getBrowserAPI } from "../util";
 import shallowDiff from "../strategies/shallowDiff/diff";
@@ -88,11 +89,10 @@ const defaultOpts = {
  * @return {WrapStore} The wrapStore function that accepts a Redux store and
  * options. See {@link WrapStore}.
  */
+
 export default () => {
   const browserAPI = getBrowserAPI();
 
-  // Setup message listeners synchronously to avoid dropping messages if the
-  // extension is woken by a message.
   const stateProviderListener = createDeferredListener();
   const actionListener = createDeferredListener();
 
@@ -102,7 +102,7 @@ export default () => {
   browserAPI.runtime.onMessage.addListener(actionListener.listener as any);
 
   return (
-    store = {} as any,
+    storeCreator: () => ReturnType<typeof configureStore>,
     options?: StoreOptions & {
       diffStrategy?: <T extends object>(obj: T, difference: DiffItem<T>[]) => T;
     }
@@ -117,6 +117,7 @@ export default () => {
       ...defaultOpts,
       ...options,
     };
+
     if (!channelName) {
       throw new Error("channelName is required in options");
     }
@@ -131,6 +132,8 @@ export default () => {
         "diffStrategy must be one of the included diffing strategies or a custom diff function"
       );
     }
+
+    const store = storeCreator();
 
     /**
      * Respond to dispatches from UI components
@@ -194,7 +197,11 @@ export default () => {
       // We will broadcast state changes to all tabs to sync state across content scripts
       return browserAPI.tabs.query({}, (tabs) => {
         for (const tab of tabs) {
-          browserAPI.tabs.sendMessage(tab.id as number, [...args], onErrorCallback);
+          browserAPI.tabs.sendMessage(
+            tab.id as number,
+            [...args],
+            onErrorCallback
+          );
         }
       });
     });

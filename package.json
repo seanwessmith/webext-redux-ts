@@ -28,6 +28,7 @@
   "homepage": "https://github.com/tshaddix/webext-redux#readme",
   "dependencies": {
     "@babel/preset-typescript": "^7.24.7",
+    "@reduxjs/toolkit": "^2.2.7",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/lodash": "^4.17.7",
     "lodash": "^4.17.21",
